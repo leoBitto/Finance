@@ -15,11 +15,9 @@
 #%matplotlib inline
 #for defining dates
 import datetime as dt
-from pickle import TRUE
 import time
 from os import listdir
 from os.path import isfile, join
-from turtle import update
 
 #styling dates
 import matplotlib.dates as mdates
@@ -34,7 +32,7 @@ import pandas as pd
 #read stock data
 from pandas_datareader import data as web
 
-from .settings import *
+from settings import *
 
 
 stocks_not_downloaded = []
@@ -78,33 +76,39 @@ def get_valid_dates(df, sdate, edate):
 ##################################
 def get_df_from_csv(ticker):
     try:
+        #look for the dataframe in the Archive folder
         df = pd.read_csv(PATH + ticker + ".csv", index_col = 'Date', parse_dates=True)
         df = delete_unnamed_cols(df)
+        # control if it is updated
+        date_end = df.index.max().to_pydatetime()
+        today_date = dt.datetime.today()
 
-        date_end = df.index.max().strftime("%Y-%m-%d")
-        print("last day in df: ", date_end)
-        today_date = dt.datetime.today().strftime("%Y-%m-%d")
-        print("today is: ", today_date)
-        if date_end != today_date:
+        if date_end.date() < today_date.date():
             try:
                 print("Updating to today date for :", ticker)
                 updated_df = web.DataReader(ticker, 'yahoo', date_end, today_date)
-                updated_df = delete_unnamed_cols(df)
+                updated_df = delete_unnamed_cols(updated_df)
+
                 time.sleep(5)
-                df.concat(updated_df)
-                df = delete_unnamed_cols(df)
-                df.to_csv(PATH + ticker + ".csv")
-                print("Updated to today date : ", ticker, ", saved in ", PATH)
+
+                new_df = pd.concat([df, updated_df])
+                new_df = delete_unnamed_cols(new_df)
+                
+                # save the new updated df
+                new_df.to_csv(PATH + ticker + ".csv")
+                print(ticker, "has been saved in ", PATH)
+
             except Exception as ex:
                 print("Couldn't get updated data for :", ticker)
-                return df
+                print("ERROR: ", ex)
+                return df, updated_df
 
     except FileNotFoundError:
         print("File doesn't exist, I'll try to download it...")
         save_to_csv_from_yahoo(ticker, S_DATE_DATETIME, today_date)
         
     else:
-        return df
+        return pd.read_csv(PATH + ticker + ".csv", index_col = 'Date', parse_dates=True)
 
 def save_df_to_csv(df, ticker):
     df.to_csv(PATH + ticker + '.csv')

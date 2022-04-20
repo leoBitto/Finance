@@ -11,8 +11,8 @@
 ## Author : Leonardo Bitto
 #################################################
 
-from .librarian import *
-from .settings import *
+from settings import *
+from librarian import *
 
 #### BASIC STATS BETWEEN DATES OF 'Adj. Close'
 #### OF A SINGLE STOCK given its dataframe
