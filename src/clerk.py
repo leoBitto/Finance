@@ -2,17 +2,18 @@
 ##
 ## Clerk is a piece of software to calculate 
 ##  statistics between dates of a time series
-##  of days of trade of several socks
+##  of days of trade of several stocks
 ##  the software can be used to create optimal
 ##  portfolios. 
-## The data is gathered by the librarian module
-##  
+## The dataof a single stok is gathered by the 
+##  librarian module, while Clerk operates on
+##  the single stocks
 ##
 ## Author : Leonardo Bitto
 #################################################
 
-from settings import *
-from librarian import *
+from src.settings import *
+from src.librarian import *
 
 #### BASIC STATS BETWEEN DATES OF 'Adj. Close'
 #### OF A SINGLE STOCK given its dataframe
@@ -68,12 +69,14 @@ def get_cv_between_dates(df, sdate, edate):
 # * your new total is Initial Investment + 1 * Initial Investment = 200
 def get_roi_between_dates(df, sdate, edate):
     try:
-        df = df.set_index(['Date'])
-        start_val = df.loc[sdate, 'Adj Close']
-        end_val = df.loc[edate, 'Adj Close']
+        df = get_column_between_dates(df, 'Adj Close', sdate, edate)
+        start_val = df.max()
+        end_val = df.min()
+        print(start_val, end_val)
         roi = ((end_val - start_val)/start_val)    
-    except Exception:
+    except Exception as e:
         print("Date Corrupted")
+        print("ERROR MESSAGE: ", e)
     else:
         return roi
 ###
@@ -126,3 +129,36 @@ def get_port_cov(sdate, edate, *stocks):
 # there is risk you can limit through diversification (idiosyncratic) and risk that you cant(systematic). Systematic risk is caused by unforeseen conditions sucj as wars, recessions natural dissters etc...  
 # data tells us that if we make a portfolio made up of approximately 25 stocks that arent correlated then we can dramatically lower idisyncratic risk. this is the reason people invest in indexes.  
 # you can further lower risk by investing in other countries, bonds, and cash
+
+def get_roi_between_dates(ticker, sdate, edate):
+    df = get_column_between_dates(ticker, 'Adj Close', sdate, edate)
+    initial_value = df.iloc[0]
+    end_value = df.iloc[-1]
+    return (end_value - initial_value)/initial_value
+
+def get_roi_for_industry(tickers_industry, sdate, edate):
+    tickers = []
+    rois = []
+    for index, row in tickers_industry.iterrows():
+        ticker = row['Ticker']
+        tickers.append(ticker)
+        roi = get_roi_between_dates(ticker, sdate, edate)
+        print(ticker, roi)
+        rois.append(roi)
+        
+    return pd.DataFrame({'Tickers':tickers, 'ROIs':rois})
+
+
+# get best in each sectors
+def get_best_in_sectors(sectors, sdate, edate):
+    sec_df = pd.read_csv(PATH_to_stock)
+    for sector in sectors:
+        best_for_sector = []
+        secTickROI = pd.DataFrame()
+        sector_df = sec_df.loc[sec_df['Sector'] == sector]
+        secTickROI.append({'Sector':sector, 'tickers_rois':get_roi_for_industry(sector_df,sdate,edate)})
+
+        best_for_sector.append(secTickROI[sector].sort_values(by=['ROI'], ascending=False)[0])
+
+    return merge_df_by_column_name('daily_return', sdate, edate, *best_for_sector)
+

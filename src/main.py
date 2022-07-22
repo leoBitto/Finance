@@ -12,9 +12,9 @@ from librarian import *
 from clerk import *
 
 def main():
-    ticker = input("what stock do you want? : ")
-    df = get_df_from_csv(ticker)
-    print(df)
+    sdate = '2015-01-01'
+    edate = dt.datetime.today().strftime('%Y' + '-' + '%m' + '-' + '%d')
+    print(get_best_in_sectors(sectors, sdate, edate))
 
 if __name__ == '__main__':
     main()

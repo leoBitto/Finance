@@ -14,3 +14,5 @@ E_MONTH = 3
 E_DAY = 27
 E_DATE_STR = f"{E_YEAR}-{E_MONTH}-{E_DAY}"
 E_DATE_DATETIME = dt.datetime(E_YEAR, E_MONTH, E_DAY)
+
+risk_free_rate = 0.0125

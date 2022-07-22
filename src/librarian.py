@@ -32,7 +32,7 @@ import pandas as pd
 #read stock data
 from pandas_datareader import data as web
 
-from settings import *
+from src.settings import *
 
 
 stocks_not_downloaded = []
@@ -75,40 +75,42 @@ def get_valid_dates(df, sdate, edate):
 ############### DATAFRAME HANDLING save/get/add daily return
 ##################################
 def get_df_from_csv(ticker):
+    today_date = dt.datetime.today()
     try:
         #look for the dataframe in the Archive folder
         df = pd.read_csv(PATH + ticker + ".csv", index_col = 'Date', parse_dates=True)
         df = delete_unnamed_cols(df)
         # control if it is updated
         date_end = df.index.max().to_pydatetime()
-        today_date = dt.datetime.today()
+        
 
         if date_end.date() < today_date.date():
-            try:
+            try:  #to update the csv
                 print("Updating to today date for :", ticker)
                 updated_df = web.DataReader(ticker, 'yahoo', date_end, today_date)
                 updated_df = delete_unnamed_cols(updated_df)
 
-                time.sleep(5)
+                time.sleep(3)
 
                 new_df = pd.concat([df, updated_df])
                 new_df = delete_unnamed_cols(new_df)
-                
+                new_df = new_df[~new_df.index.duplicated()]
                 # save the new updated df
                 new_df.to_csv(PATH + ticker + ".csv")
-                print(ticker, "has been saved in ", PATH)
+                print(ticker, "has been updated and saved in ", PATH)
 
             except Exception as ex:
                 print("Couldn't get updated data for :", ticker)
                 print("ERROR: ", ex)
-                return df, updated_df
 
     except FileNotFoundError:
         print("File doesn't exist, I'll try to download it...")
         save_to_csv_from_yahoo(ticker, S_DATE_DATETIME, today_date)
         
     else:
-        return pd.read_csv(PATH + ticker + ".csv", index_col = 'Date', parse_dates=True)
+        fdf = pd.read_csv(PATH + ticker + ".csv", index_col = 'Date', parse_dates=True)
+        fdf = add_daily_return_to_df(fdf)
+        return fdf
 
 def save_df_to_csv(df, ticker):
     df.to_csv(PATH + ticker + '.csv')
@@ -118,19 +120,26 @@ def get_column_from_csv(ticker, col_name):
     df = get_df_from_csv(ticker)
     return df[col_name]
 
+def get_column_between_dates(ticker, col_name, sdate, edate):
+    df = get_column_from_csv(ticker, col_name)
+    mask = (df.index >= sdate ) & ( df.index <= edate )
+    return df.loc[mask]
+
 #merge multiple stocks in dataframe by column name
 def merge_df_by_column_name(col_name, sdate, edate, *tickers):
     mult_df = pd.DataFrame()
 
-    for x in tickers:
-        df = get_df_from_csv(x)
-        df['Date'] = pd.to_datetime(df['Date'])
-        #valid_sdate, valid_edate = get_valid_dates(df, sdate, edate)
-        #print(valid_sdate, valid_edate)
-        mask = (df['Date'] >= sdate ) & ( df['Date'] <= edate )
-        mult_df[x] = df.loc[mask][col_name].values
-
-    return mult_df
+    try:
+        for x in tickers:
+            df = get_df_from_csv(x)
+            mask = (df.index >= sdate ) & ( df.index <= edate )
+            mult_df[x] = df.loc[mask][col_name]
+    except Exception as e:
+        print("There was a problem merging the data, probably the number of days didn't match")
+        print("Try a more recent date for the beginning.")
+        print("ERROR MESSAGE", e)
+    else:
+        return mult_df
 
 #we calculate a percentage rate of return for each day to compare investments
 #simple rate of Return = (End Price - Beginning Price) / Beginning Price OR (EP / BP) - 1
@@ -153,6 +162,7 @@ def save_to_csv_from_yahoo(ticker, sdate, edate):
     except Exception as ex:
         stocks_not_downloaded.append(ticker)
         print("Couldn't get data for :", ticker)
+        print(ex)
 
 ##DOWNLOAD MULTIPLE STOCK
 # try to download all the stocks then try again with the one 
